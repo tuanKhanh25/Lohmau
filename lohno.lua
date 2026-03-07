@@ -1,55 +1,101 @@
--- [[ SCRIPT HACK VIP PRO MAX - BY TUẤN KHANH ]] --
+--[[
+    ╔══════════════════════════════════════════════╗
+    ║        TUAN KHANH HUB - SECURITY SYSTEM      ║
+    ║   ANTI-EXPLOIT PROTOCOL: ACTIVATED           ║
+    ╚══════════════════════════════════════════════╝
+]]
+
 local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
-local StarterGui = game:GetService("StarterGui")
-local player = Players.LocalPlayer
+local SoundService = game:GetService("SoundService")
 
--- Thông báo khởi động cực uy tín
-StarterGui:SetCore("SendNotification", {
-	Title = "HACK BY TUẤN KHANH",
-	Text = "Đang kết nối Server... Bypass Anti-Cheat thành công!",
-	Icon = "rbxassetid://6034503042",
-	Duration = 5
-})
+-- Tạo giao diện bao phủ toàn bộ
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TuanKhanh_Security"
+ScreenGui.Parent = CoreGui
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.DisplayOrder = 9999999
 
-task.wait(3)
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(1, 0, 1, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 150) -- Màu xanh BSOD
+MainFrame.Parent = ScreenGui
 
--- Tạo một cái bảng hỏi đáp giả cho kịch tính
-local screenGui = Instance.new("ScreenGui")
-screenGui.Parent = player:WaitForChild("PlayerGui")
+-- Hiệu ứng nhiễu màn hình (Glitch)
+local function Glitch()
+    task.spawn(function()
+        while true do
+            MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, math.random(100, 200))
+            task.wait(0.05)
+        end
+    end)
+end
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 400, 0, 200)
-mainFrame.Position = UDim2.new(0.5, -200, 0.5, -100)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-mainFrame.BorderSizePixel = 2
-mainFrame.Parent = screenGui
+-- Âm thanh báo động
+local Alarm = Instance.new("Sound")
+Alarm.SoundId = "rbxassetid://138081509" -- Tiếng còi hú
+Alarm.Looped = true
+Alarm.Parent = MainFrame
+Alarm:Play()
 
-local label = Instance.new("TextLabel")
-label.Size = UDim2.new(1, 0, 0.6, 0)
-label.Text = "Hệ thống phát hiện tài khoản này đang nhận hỗ trợ từ Tuấn Khanh.\nBạn có đồng ý kích hoạt Mode Hack Toàn Năng không?"
-label.TextColor3 = Color3.fromRGB(255, 255, 255)
-label.BackgroundTransparency = 1
-label.TextWrapped = true
-label.Font = Enum.Font.SourceSansBold
-label.TextSize = 18
-label.Parent = mainFrame
+-- Nội dung log hệ thống
+local Console = Instance.new("TextLabel")
+Console.Size = UDim2.new(0.9, 0, 0.8, 0)
+Console.Position = UDim2.new(0.05, 0, 0.05, 0)
+Console.BackgroundTransparency = 1
+Console.Font = Enum.Font.Code
+Console.TextColor3 = Color3.fromRGB(255, 255, 255)
+Console.TextSize = 18
+Console.TextXAlignment = Enum.TextXAlignment.Left
+Console.TextYAlignment = Enum.TextYAlignment.Top
+Console.Text = ""
+Console.Parent = MainFrame
 
-local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0.4, 0, 0.2, 0)
-btn.Position = UDim2.new(0.3, 0, 0.7, 0)
-btn.Text = "CÓ, KÍCH HOẠT NGAY"
-btn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-btn.Parent = mainFrame
+local lines = {
+    "[!] INTERNAL ERROR: Memory Corruption at 0x00045F",
+    "[!] SECURITY: Unauthorized Executor Detected.",
+    "> Scanning User: " .. Players.LocalPlayer.Name,
+    "> Hardware ID: " .. game:GetService("RbxAnalyticsService"):GetClientId(),
+    "> Status: PERMANENT BAN INITIATED.",
+    "> Deleting Scripts... [OK]",
+    "> Corrupting Exploit Data... [OK]",
+    "> SENDING DEVICE SNAPSHOT TO ROBLOX HQ...",
+    "-------------------------------------------",
+    "BY TUAN KHANH SYSTEM: DO NOT TURN OFF PC",
+    "SYSTEM LOCK: 100%"
+}
 
--- Khi nó bấm vào nút "CÓ"
-btn.MouseButton1Click:Connect(function()
-    label.Text = "Đang hack dữ liệu Roblox... Vui lòng không thoát game..."
-    btn.Visible = false
-    task.wait(3)
+-- Chạy chữ
+task.spawn(function()
+    for _, line in ipairs(lines) do
+        for i = 1, #line do
+            Console.Text = Console.Text .. line:sub(i,i)
+            task.wait(0.01)
+        end
+        Console.Text = Console.Text .. "\n"
+        task.wait(0.3)
+    end
     
-    -- Cú chốt hạ kinh điển
-    local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
-    player:Kick("\n\n[ADMINISTRATOR SYSTEM]\n\nUsername: " .. player.Name .. "\nBanned by: Tuấn Khanh Security\n\nReason: Bạn đã bị lừa! Đừng có hack nữa nhé bạn hiền.\nHardware ID: " .. hwid .. "\n\nNote: Tài khoản của bạn đã vào danh sách đen của Tuấn Khanh.")
+    task.wait(1)
+    Glitch()
+    
+    -- Hiện màn hình xanh chết chóc (Fake BSOD)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(0, 100, 255)
+    Console.Visible = false
+    
+    local BSOD = Instance.new("TextLabel")
+    BSOD.Size = UDim2.new(1, 0, 1, 0)
+    BSOD.BackgroundTransparency = 1
+    BSOD.Font = Enum.Font.SourceSans
+    BSOD.Text = ":(\n\nYour PC ran into a problem and needs to restart.\nWe're just collecting some error info, and then we'll restart for you.\n\n100% Complete\n\nFor more information about this issue and possible fixes, visit:\nhttps://www.roblox.com/stop-hacking-bro\n\nStop Code: EXPLOIT_DETECTED_BY_TUAN_KHANH"
+    BSOD.TextColor3 = Color3.fromRGB(255, 255, 255)
+    BSOD.TextSize = 30
+    BSOD.Parent = MainFrame
+    
+    task.wait(5)
+    Players.LocalPlayer:Kick("Hệ thống bảo mật Tuấn Khanh đã khóa tài khoản này. Lý do: Sử dụng hack trái phép.")
 end)
+
+-- Khóa toàn bộ GUI gốc của game
+game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
