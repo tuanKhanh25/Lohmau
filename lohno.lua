@@ -1,151 +1,184 @@
---[[ 
-    TUAN KHANH HUB - DOOMSDAY EDITION
-    MỤC ĐÍCH: TRỊ BỆNH SÀI HACK CỦA BẠN BÈ
-]]
-
 local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local LocalPlayer = Players.LocalPlayer
 
--- Dọn dẹp GUI cũ
-if CoreGui:FindFirstChild("TK_Doomsday") then
-    CoreGui.TK_Doomsday:Destroy()
+-- ================= CẤU HÌNH VIP =================
+local CONFIG = {
+    COMBO_DIST = 5.5,        -- Tầm đánh M1 tối ưu
+    DASH_DIST = 18,          -- Tầm lướt
+    SAFE_DIST = 25,          -- Tầm vờn quanh đối thủ
+    PERFECT_BLOCK = 90,      -- 90% tỷ lệ đỡ đòn hoàn hảo (Instant Input)
+    AWAKEN_HEALTH_PCT = 30,  -- Bật nộ khi máu dưới 30%
+    FLEE_HEALTH_PCT = 15,    -- Bỏ chạy/Né liên tục khi máu dưới 15%
+}
+
+-- Hệ thống quản lý Combo & Cooldown
+local CombatState = {
+    M1_Step = 1,
+    LastM1 = 0,
+    Skills = {
+        [1] = {Key = Enum.KeyCode.One, LastUsed = 0, Cooldown = 15},
+        [2] = {Key = Enum.KeyCode.Two, LastUsed = 0, Cooldown = 20},
+        [3] = {Key = Enum.KeyCode.Three, LastUsed = 0, Cooldown = 25}
+    }
+}
+
+-- ================= HÀM HỖ TRỢ =================
+
+-- Giả lập phím bấm (Instant Input)
+local function tapKey(key)
+    VirtualInputManager:SendKeyEvent(true, key, false, game)
+    task.wait(0.02) -- Tốc độ nhả phím cực nhanh
+    VirtualInputManager:SendKeyEvent(false, key, false, game)
 end
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "TK_Doomsday"
-ScreenGui.Parent = CoreGui
-ScreenGui.IgnoreGuiInset = true
-ScreenGui.DisplayOrder = 9999999
-
-local Background = Instance.new("Frame")
-Background.Size = UDim2.new(1, 0, 1, 0)
-Background.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Background.Parent = ScreenGui
-
-local Terminal = Instance.new("TextLabel")
-Terminal.Size = UDim2.new(0.9, 0, 0.9, 0)
-Terminal.Position = UDim2.new(0.05, 0, 0.05, 0)
-Terminal.BackgroundTransparency = 1
-Terminal.Font = Enum.Font.Code
-Terminal.TextColor3 = Color3.fromRGB(0, 255, 0)
-Terminal.TextSize = 16
-Terminal.TextXAlignment = Enum.TextXAlignment.Left
-Terminal.TextYAlignment = Enum.TextYAlignment.Top
-Terminal.Text = ""
-Terminal.Parent = Background
-
--- Âm thanh
-local Siren = Instance.new("Sound")
-Siren.SoundId = "rbxassetid://138081509" -- Còi báo động
-Siren.Looped = true
-Siren.Volume = 2
-Siren.Parent = Background
-
-local GlitchSound = Instance.new("Sound")
-GlitchSound.SoundId = "rbxassetid://833058091" -- Tiếng nhiễu sóng
-GlitchSound.Volume = 3
-GlitchSound.Parent = Background
-
--- Hàm gõ chữ từ từ
-local function typeWriter(text, color, delayTime)
-    Terminal.TextColor3 = color or Color3.fromRGB(0, 255, 0)
-    for i = 1, #text do
-        Terminal.Text = Terminal.Text .. text:sub(i,i)
-        task.wait(delayTime or 0.01)
+-- Kiểm tra trạng thái bất khả xâm phạm (I-Frame / Ragdoll)
+local function isInvincible(character)
+    if not character then return true end
+    local hum = character:FindFirstChild("Humanoid")
+    -- TSB thường dùng PlatformStand khi bị knockback/ragdoll
+    if hum and (hum.PlatformStand or hum.Sit or hum:GetState() == Enum.HumanoidStateType.Physics) then
+        return true
     end
-    Terminal.Text = Terminal.Text .. "\n"
+    -- Check ForceField (Nếu game dùng)
+    if character:FindFirstChildOfClass("ForceField") then return true end
+    return false
 end
 
--- Hiệu ứng rung camera cực mạnh
-local function shakeCamera()
-    RunService.RenderStepped:Connect(function()
-        local x = math.random(-2, 2)
-        local y = math.random(-2, 2)
-        local z = math.random(-2, 2)
-        Camera.CFrame = Camera.CFrame * CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
-    end)
+-- Tìm mục tiêu tối ưu nhất
+local function getBestTarget()
+    local bestDist, target = math.huge, nil
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local hum = plr.Character:FindFirstChild("Humanoid")
+            local root = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hum and root and hum.Health > 0 and not isInvincible(plr.Character) then
+                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
+                if dist < bestDist then
+                    bestDist = dist
+                    target = plr.Character
+                end
+            end
+        end
+    end
+    return target, bestDist
 end
 
--- TIẾN TRÌNH KỊCH BẢN
-task.spawn(function()
-    -- [PHẦN 1: MỒI NHỬ]
-    typeWriter("> [TUẤN KHANH HUB] V4.0 PREMIUM INITIALIZED...", Color3.fromRGB(0, 255, 255))
-    task.wait(1)
-    typeWriter("> Bypassing Anti-Cheat... [SUCCESS]")
-    typeWriter("> Injecting Fast Attack Module... [SUCCESS]")
-    typeWriter("> Loading Auto Farm Logic... [SUCCESS]")
-    task.wait(2)
-    typeWriter("> Executing Main Thread...")
-    task.wait(1.5)
+-- ================= LOGIC CHIẾN ĐẤU =================
 
-    -- [PHẦN 2: LẬT MẶT]
-    GlitchSound:Play()
-    Background.BackgroundColor3 = Color3.fromRGB(50, 0, 0)
-    typeWriter("\nFATAL ERROR: BYFRON KERNEL-LEVEL DETECTED INJECTION!", Color3.fromRGB(255, 0, 0))
-    task.wait(1)
-    Siren:Play()
-    shakeCamera() -- Bắt đầu rung màn hình
+local function executeGodCombo()
+    local now = tick()
     
-    for i = 1, 5 do
-        Background.BackgroundColor3 = (i % 2 == 0) and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(0, 0, 0)
-        task.wait(0.2)
+    -- Delay giữa các đòn M1 (0.4s là nhịp chuẩn của TSB)
+    if now - CombatState.LastM1 > 0.4 then
+        if CombatState.M1_Step <= 3 then
+            -- Tung 3 hit M1
+            tapKey(Enum.KeyCode.ButtonL2) -- Hoặc mouse1click() nếu dùng exploit executor
+            CombatState.M1_Step = CombatState.M1_Step + 1
+            CombatState.LastM1 = now
+        else
+            -- Hit thứ 4: Thay vì M1 chốt, xài Skill để nối combo
+            local skillUsed = false
+            for i = 1, 3 do
+                if now - CombatState.Skills[i].LastUsed > CombatState.Skills[i].Cooldown then
+                    tapKey(CombatState.Skills[i].Key)
+                    CombatState.Skills[i].LastUsed = now
+                    skillUsed = true
+                    break
+                end
+            end
+            
+            if not skillUsed then
+                -- Nếu hết chiêu, đấm hit 4 để đẩy lùi
+                tapKey(Enum.KeyCode.ButtonL2)
+            end
+            
+            CombatState.M1_Step = 1 -- Reset chuỗi
+            CombatState.LastM1 = now + 0.5 -- Nghỉ một nhịp sau khi kết thúc chuỗi
+        end
     end
-    Background.BackgroundColor3 = Color3.fromRGB(10, 0, 0)
+end
 
-    typeWriter("\n[ROBLOX SECURITY]: UNAUTHORIZED EXPLOIT FOUND IN MEMORY.", Color3.fromRGB(255, 50, 50))
-    typeWriter(">> LOCKING SYSTEM TO PREVENT DAMAGE...", Color3.fromRGB(255, 0, 0))
-    task.wait(2)
+-- ================= VÒNG LẶP CHÍNH =================
 
-    -- Đọc thông tin giả để hù dọa
-    local fakeIP = "113.190." .. math.random(10, 250) .. "." .. math.random(10, 250)
-    local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
-    
-    typeWriter("\n[EXTRACTING USER DATA...]")
-    task.wait(1)
-    typeWriter("-> Username: " .. Players.LocalPlayer.Name, Color3.fromRGB(200, 200, 200))
-    typeWriter("-> IP Address: " .. fakeIP, Color3.fromRGB(200, 200, 200))
-    typeWriter("-> Hardware ID: " .. hwid, Color3.fromRGB(200, 200, 200))
-    task.wait(2)
-    
-    -- [PHẦN 3: ĐÒN CHÍ MẠNG]
-    typeWriter("\n[!] WARNING: EXPLOIT HAS CORRUPTED GAME FILES.", Color3.fromRGB(255, 100, 0))
-    typeWriter(">> INITIATING COUNTER-MEASURES...", Color3.fromRGB(255, 100, 0))
-    task.wait(2)
-    
-    typeWriter("\n[SYSTEM]: ACCESSING WEBCAM TO CAPTURE CHEATER'S FACE...", Color3.fromRGB(255, 0, 255))
-    task.wait(2)
-    typeWriter("-> Webcam Access: GRANTED. Image captured and sent to Roblox HQ.", Color3.fromRGB(255, 0, 255))
-    task.wait(2)
+RunService.Heartbeat:Connect(function(deltaTime)
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local root = char.HumanoidRootPart
+    local hum = char.Humanoid
 
-    typeWriter("\n[SYSTEM]: DELETING EXPLOIT TRACES FROM OPERATING SYSTEM...", Color3.fromRGB(255, 255, 0))
-    task.wait(1)
-    
-    -- Dọa xóa file hệ thống
-    for i = 1, 15 do
-        typeWriter("Deleting C:\\Windows\\System32\\dllcache\\module_"..math.random(1000,9999)..".sys ... [OK]", Color3.fromRGB(100, 100, 100), 0.05)
+    local myHealthPct = (hum.Health / hum.MaxHealth) * 100
+
+    -- Auto Awakening (Phím G)
+    if myHealthPct <= CONFIG.AWAKEN_HEALTH_PCT then
+        tapKey(Enum.KeyCode.G)
     end
+
+    local enemy, dist = getBestTarget()
     
-    task.wait(1)
-    typeWriter("\n[CRITICAL]: WINDOWS OS CORRUPTION IMMINENT.", Color3.fromRGB(255, 0, 0))
-    typeWriter("DO NOT TURN OFF YOUR PC. SYSTEM PURGE IN PROGRESS.", Color3.fromRGB(255, 0, 0))
-    
-    -- Đếm ngược cuối cùng
-    for i = 15, 1, -1 do
-        Terminal.Text = Terminal.Text .. "\nPURGE IN: " .. i .. " SECONDS"
-        task.wait(1)
+    if not enemy then 
+        -- Nếu không có mục tiêu hợp lệ (địch chết hoặc đang ragdoll), thả block và dừng lại
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+        return 
     end
     
-    -- Kick cực gắt
-    Players.LocalPlayer:Kick("\n🚨 HỆ THỐNG TUẤN KHANH ĐÃ KHÓA THIẾT BỊ 🚨\n\nPhát hiện sử dụng phần mềm thứ 3.\nWebcam và IP của bạn đã được ghi nhận.\nHệ điều hành đang tự động gỡ bỏ file rác. Vui lòng kiểm tra lại máy tính!")
+    local enemyRoot = enemy.HumanoidRootPart
+    local enemyHum = enemy.Humanoid
+
+    -- 1. HARD CFRAME LOCK (Nhưng Smooth để không giật lag)
+    local targetLook = CFrame.new(root.Position, Vector3.new(enemyRoot.Position.X, root.Position.Y, enemyRoot.Position.Z))
+    -- Tốc độ xoay nội suy: Càng gần xoay càng nhanh để bám mục tiêu
+    local turnSpeed = math.clamp(1 / dist, 0.1, 0.8) 
+    root.CFrame = root.CFrame:Lerp(targetLook, turnSpeed)
+
+    -- 2. ĐỌC TÌNH HUỐNG & ĐỠ ĐÒN (Instant Input Block)
+    local isDanger = false
+    for _, anim in pairs(enemyHum:GetPlayingAnimationTracks()) do
+        local animName = anim.Name:lower()
+        if animName:match("attack") or animName:match("skill") or animName:match("punch") or animName:match("kick") then
+            isDanger = true
+            break
+        end
+    end
+
+    if isDanger and dist <= CONFIG.DASH_DIST then
+        if math.random(1, 100) <= CONFIG.PERFECT_BLOCK then
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+            return -- Khi đang đỡ thì không di chuyển hay đánh
+        end
+    else
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+    end
+
+    -- 3. DI CHUYỂN CHIẾN THUẬT KẾT HỢP
+    if myHealthPct <= CONFIG.FLEE_HEALTH_PCT then
+        -- Trạng thái: Sinh tồn (Lướt lùi hoặc đi xa ra)
+        local fleePos = root.Position + (root.Position - enemyRoot.Position).Unit * 20
+        hum:MoveTo(fleePos)
+        if math.random(1, 40) == 1 then tapKey(Enum.KeyCode.Q) end -- Spam lướt để chạy
+        
+    elseif dist > CONFIG.SAFE_DIST then
+        -- Chế độ: Đi bộ áp sát
+        hum:MoveTo(enemyRoot.Position)
+        
+    elseif dist <= CONFIG.SAFE_DIST and dist > CONFIG.DASH_DIST then
+        -- Chế độ: Orbiting (Đi vòng tròn)
+        local timeSec = tick() * 1.5
+        local orbitOffset = Vector3.new(math.cos(timeSec) * 15, 0, math.sin(timeSec) * 15)
+        hum:MoveTo(enemyRoot.Position + orbitOffset)
+        
+    elseif dist <= CONFIG.DASH_DIST and dist > CONFIG.COMBO_DIST then
+        -- Chế độ: Nhào vô (Dash In)
+        hum:MoveTo(enemyRoot.Position)
+        if not isDanger and math.random(1, 30) == 1 then
+            tapKey(Enum.KeyCode.Q) -- Lướt tới khi an toàn
+        end
+
+    elseif dist <= CONFIG.COMBO_DIST then
+        -- Chế độ: Xẻ thịt (Cận chiến)
+        hum:MoveTo(root.Position) -- Đứng tấn vững vàng
+        executeGodCombo()
+    end
 end)
 
--- Khóa toàn bộ phím và màn hình
-game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
-local UserInputService = game:GetService("UserInputService")
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.Escape then
-        -- Chặn nút ESC
-    end
-end)
