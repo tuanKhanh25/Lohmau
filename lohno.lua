@@ -1,117 +1,397 @@
-local Lighting = game:GetService("Lighting")
-local Workspace = game:GetService("Workspace")
-local Terrain = Workspace:FindFirstChildOfClass("Terrain")
+--[[
+    ╔══════════════════════════════════════════════════════════════╗
+    ║         ANIME CINEMATIC SHADER v2.0 — by Script Forge        ║
+    ║   Optimized for: The Strongest Battlegrounds & Combat Games   ║
+    ║   Engine: Future Lighting · Cell Shading · Full Post-FX Stack ║
+    ╚══════════════════════════════════════════════════════════════╝
+--]]
 
----------------------------------------------------
--- PHẦN 1: KÍCH HOẠT ENGINE TƯƠNG LAI (MÓNG NHÀ ĐẸP)
----------------------------------------------------
--- Ép Roblox dùng Future Lighting với đổ bóng thời gian thực chính xác
-settings().Rendering.GraphicsMode = Enum.GraphicsMode.Direct3D11 -- Ép dùng DX11 (nếu Cloud hỗ trợ)
-Lighting.Technology = Enum.Technology.Future
-Lighting.ShadowSoftness = 0 -- Đổ bóng sắc nét đến từng milimet
-Lighting.EnvironmentDiffuseScale = 1 -- Phản chiếu ánh sáng môi trường max
-Lighting.EnvironmentSpecularScale = 1 -- Kim loại, mồ hôi, máu bóng loáng
-Lighting.GlobalShadows = true
+-- ─────────────────────────────────────────────────────────────────
+--  SERVICES
+-- ─────────────────────────────────────────────────────────────────
+local Lighting        = game:GetService("Lighting")
+local Players         = game:GetService("Players")
+local RunService      = game:GetService("RunService")
+local TweenService    = game:GetService("TweenService")
 
----------------------------------------------------
--- PHẦN 2: POST-PROCESSING SIÊU CẤP (VIBE ANIME)
----------------------------------------------------
+local LocalPlayer     = Players.LocalPlayer
+local Camera          = workspace.CurrentCamera
 
--- 1. Bloom (Độ lóa): Làm skill, hiệu ứng rực rỡ như phim Makoto Shinkai
-local bloom = Lighting:FindFirstChild("CryBloom") or Instance.new("BloomEffect", Lighting)
-bloom.Name = "CryBloom"
-bloom.Intensity = 0.8 -- Cực mạnh
-bloom.Size = 56 -- Tỏa rộng
-bloom.Threshold = 0.7 -- Chỉ skill mạnh mới lóa
+-- ─────────────────────────────────────────────────────────────────
+--  CONFIG — tweak these to taste
+-- ─────────────────────────────────────────────────────────────────
+local CONFIG = {
 
--- 2. ColorCorrection (Màu sắc): Màu sắc tươi, độ tương phản cao đặc trưng Anime
-local cc = Lighting:FindFirstChild("CryColor") or Instance.new("ColorCorrectionEffect", Lighting)
-cc.Name = "CryColor"
-cc.Brightness = 0.1
-cc.Contrast = 0.35 -- Tương phản cực cao
-cc.Saturation = 0.25 -- Màu sắc rực rỡ
-cc.TintColor = Color3.fromRGB(255, 250, 240) -- Tone nắng ấm nghệ thuật
+    -- Lighting engine
+    Technology              = Enum.Technology.Future,
+    EnvironmentDiffuseScale = 1,
+    EnvironmentSpecularScale= 1,
+    Ambient                 = Color3.fromRGB(20, 18, 30),
+    OutdoorAmbient          = Color3.fromRGB(70, 60, 90),
+    ShadowSoftness          = 0.2,
+    ExposureCompensation    = 0.1,
 
--- 3. DepthOfField (Nhiếp ảnh): Xóa phông làm nổi bật Model
-local dof = Lighting:FindFirstChild("CryDoF") or Instance.new("DepthOfFieldEffect", Lighting)
-dof.Name = "CryDoF"
-dof.FarIntensity = 1
-dof.FocusDistance = 25 -- Luôn nét ở khoảng cách combat
-dof.InFocusRadius = 50
-dof.NearIntensity = 0.5 -- Xóa mờ nhẹ phần trước mặt
+    -- Atmosphere
+    AtmosphereDensity       = 0.35,
+    AtmosphereHaze          = 0.4,
+    AtmosphereGlare         = 0,
+    AtmosphereDecay         = 0.8,
+    AtmosphereColor         = Color3.fromRGB(199, 170, 255),  -- slight violet sky
+    AtmosphereFogColor      = Color3.fromRGB(220, 210, 255),
 
--- 4. SunRays (Tia nắng): Thêm các tia nắng "Phật quang"
-local sun = Lighting:FindFirstChild("CrySun") or Instance.new("SunRaysEffect", Lighting)
-sun.Name = "CrySun"
-sun.Intensity = 0.1 -- Không quá chói
-sun.Spread = 1 -- Tia nắng tỏa rộng
+    -- Color Correction
+    CCContrast              = 0.20,
+    CCSaturation            = 0.15,
+    CCBrightness            = 0.02,
+    CCTintColor             = Color3.fromRGB(255, 250, 240),  -- warm ivory
 
--- 5. Blur (Làm mờ chuyển động): Tăng độ mượt khi combo
-local blur = Lighting:FindFirstChild("CryBlur") or Instance.new("BlurEffect", Lighting)
-blur.Name = "CryBlur"
-blur.Size = 2 -- Mờ nhẹ khi quay camera
+    -- Bloom
+    BloomThreshold          = 0.80,
+    BloomIntensity          = 1.00,
+    BloomSize               = 24,
 
----------------------------------------------------
--- PHẦN 3: ĐỘT PHÁ MÔ HÌNH (MAKE MODEL BEAUTIFUL)
----------------------------------------------------
--- Phần này sẽ quét mọi Model và Parts trong game để áp dụng chất liệu siêu cấp
+    -- Depth of Field
+    DOFFarIntensity         = 0.60,
+    DOFInFocusRadius        = 35,
+    DOFNearIntensity        = 0.10,
+    DOFFocusDistance        = 0,    -- 0 = auto-focus on camera target
 
-local function beautifyCharacter(char)
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            -- 1. Khử bóng khối: Làm bề mặt nhân vật mịn màng, giống da anime
-            part.CastShadow = false -- Tắt shadow mặc định của part để dùng Shadow của Future
-            
-            -- 2. Thêm độ phản chiếu nhẹ (Giả lập da mịn)
-            if part.Name == "Head" or part.Name:match("Arm") or part.Name:match("Leg") or part.Name == "Torso" then
-                part.Material = Enum.Material.SmoothPlastic
-                part.Reflectance = 0.05 -- Phản chiếu ánh sáng nhẹ để nhìn không bị "lì"
-            end
-            
-            -- 3. Tạo Outline (Viền nhân vật) - Chỉ có Anime mới có
-            -- Kỹ thuật này ngốn CPU Cloud kinh khủng nhất
-            if not part:FindFirstChild("SelectionHighlight") then
-                local highlight = Instance.new("Highlight", part)
-                highlight.FillTransparency = 1 -- Chỉ giữ Outline
-                highlight.OutlineColor = Color3.fromRGB(0, 0, 0) -- Viền đen
-                highlight.OutlineTransparency = 0.5 -- Viền mờ nhẹ
-            end
-        end
+    -- Sun Rays
+    SunRayIntensity         = 0.50,
+    SunRaySpread            = 1.00,
+
+    -- Cell Shading / Outline
+    OutlineThickness        = 0.04,
+    OutlineColor            = Color3.fromRGB(0, 0, 0),
+    CharReflectance         = 0.08,
+
+    -- Cinematic bars (letterbox)
+    EnableCinematicBars     = true,
+    CinematicBarHeight      = 0.06,  -- fraction of screen height
+}
+
+-- ─────────────────────────────────────────────────────────────────
+--  STATE — track created instances for cleanup
+-- ─────────────────────────────────────────────────────────────────
+local createdEffects  = {}   -- { instance }
+local characterConns  = {}   -- { connection }
+local heartbeatConn   = nil
+local highlightCache  = {}   -- [character] = Highlight
+
+-- ─────────────────────────────────────────────────────────────────
+--  UTILITY
+-- ─────────────────────────────────────────────────────────────────
+local function track(instance)
+    table.insert(createdEffects, instance)
+    return instance
+end
+
+local function safeDestroy(instance)
+    if instance and instance.Parent then
+        pcall(function() instance:Destroy() end)
     end
 end
 
--- Áp dụng cho người chơi hiện tại
-if game.Players.LocalPlayer.Character then
-    beautifyCharacter(game.Players.LocalPlayer.Character)
+local function tweenProps(instance, props, duration)
+    local info = TweenInfo.new(duration or 1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+    TweenService:Create(instance, info, props):Play()
 end
 
--- Tự động áp dụng khi người chơi respawn
-game.Players.LocalPlayer.CharacterAdded:Connect(beautifyCharacter)
+-- ─────────────────────────────────────────────────────────────────
+--  1. ENGINE OVERRIDE — Force Future lighting
+-- ─────────────────────────────────────────────────────────────────
+local function applyLighting()
+    Lighting.Technology              = CONFIG.Technology
+    Lighting.EnvironmentDiffuseScale = CONFIG.EnvironmentDiffuseScale
+    Lighting.EnvironmentSpecularScale= CONFIG.EnvironmentSpecularScale
+    Lighting.Ambient                 = CONFIG.Ambient
+    Lighting.OutdoorAmbient          = CONFIG.OutdoorAmbient
+    Lighting.ShadowSoftness          = CONFIG.ShadowSoftness
+    Lighting.ExposureCompensation    = CONFIG.ExposureCompensation
+    Lighting.GlobalShadows           = true
+    print("[AnimeShader] Lighting → Future mode applied.")
+end
 
--- Quét môi trường xung quanh (Optional: rất nặng)
-local function beautifyEnvironment()
-    for _, part in pairs(Workspace:GetDescendants()) do
-        if part:IsA("BasePart") and part.Material == Enum.Material.Grass then
-            -- Làm cỏ nhìn chân thực hơn
-            part.Material = Enum.Material.DiamondPlate -- Hack texture để tạo khối cỏ sắc nét
-            part.Color = Color3.fromRGB(50, 150, 50)
-        end
+-- ─────────────────────────────────────────────────────────────────
+--  2. ATMOSPHERE — Depth and cinematic air
+-- ─────────────────────────────────────────────────────────────────
+local function applyAtmosphere()
+    local atm = Lighting:FindFirstChildOfClass("Atmosphere")
+              or track(Instance.new("Atmosphere", Lighting))
+
+    atm.Density   = CONFIG.AtmosphereDensity
+    atm.Haze      = CONFIG.AtmosphereHaze
+    atm.Glare     = CONFIG.AtmosphereGlare
+    atm.Decay     = CONFIG.AtmosphereDecay
+    atm.Color     = CONFIG.AtmosphereColor
+    atm.FogColor  = CONFIG.AtmosphereFogColor
+end
+
+-- ─────────────────────────────────────────────────────────────────
+--  3. POST-PROCESSING STACK
+-- ─────────────────────────────────────────────────────────────────
+local function removeOldEffect(className)
+    local existing = Lighting:FindFirstChildOfClass(className)
+    if existing then existing:Destroy() end
+end
+
+local function applyPostFX()
+
+    -- 3a. Color Correction
+    removeOldEffect("ColorCorrectionEffect")
+    local cc      = track(Instance.new("ColorCorrectionEffect"))
+    cc.Contrast   = CONFIG.CCContrast
+    cc.Saturation = CONFIG.CCSaturation
+    cc.Brightness = CONFIG.CCBrightness
+    cc.TintColor  = CONFIG.CCTintColor
+    cc.Enabled    = true
+    cc.Parent     = Lighting
+
+    -- 3b. Bloom — anime combat glow
+    removeOldEffect("BloomEffect")
+    local bloom        = track(Instance.new("BloomEffect"))
+    bloom.Threshold    = CONFIG.BloomThreshold
+    bloom.Intensity    = CONFIG.BloomIntensity
+    bloom.Size         = CONFIG.BloomSize
+    bloom.Enabled      = true
+    bloom.Parent       = Lighting
+
+    -- 3c. Depth of Field — cinematic focus plane
+    removeOldEffect("DepthOfFieldEffect")
+    local dof             = track(Instance.new("DepthOfFieldEffect"))
+    dof.FarIntensity      = CONFIG.DOFFarIntensity
+    dof.InFocusRadius     = CONFIG.DOFInFocusRadius
+    dof.NearIntensity     = CONFIG.DOFNearIntensity
+    dof.FocusDistance     = CONFIG.DOFFocusDistance
+    dof.Enabled           = true
+    dof.Parent            = Lighting
+
+    -- 3d. Sun Rays — volumetric "God Rays"
+    removeOldEffect("SunRaysEffect")
+    local sun          = track(Instance.new("SunRaysEffect"))
+    sun.Intensity      = CONFIG.SunRayIntensity
+    sun.Spread         = CONFIG.SunRaySpread
+    sun.Enabled        = true
+    sun.Parent         = Lighting
+
+    print("[AnimeShader] Post-FX stack → Bloom, DoF, SunRays, ColorCorrection applied.")
+end
+
+-- ─────────────────────────────────────────────────────────────────
+--  4. CELL SHADING — Highlight outline + material override
+-- ─────────────────────────────────────────────────────────────────
+local HUMANOID_PARTS = {
+    "Head", "UpperTorso", "LowerTorso",
+    "LeftUpperArm", "LeftLowerArm", "LeftHand",
+    "RightUpperArm", "RightLowerArm", "RightHand",
+    "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+    "RightUpperLeg", "RightLowerLeg", "RightFoot",
+    "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg",  -- R6
+}
+
+local SKIP_MATERIALS = {
+    [Enum.Material.Neon]        = true,
+    [Enum.Material.ForceField]  = true,
+}
+
+local function styleBasePart(part)
+    if part:IsA("BasePart") and not SKIP_MATERIALS[part.Material] then
+        part.Material    = Enum.Material.SmoothPlastic
+        part.Reflectance = CONFIG.CharReflectance
+        part.CastShadow  = true
     end
 end
--- beautifyEnvironment() -- Uncomment dòng này nếu muốn Map cũng khóc theo
 
----------------------------------------------------
--- PHẦN 4: HỆ THỐNG NÂNG CẤP ĐỊA HÌNH & NƯỚC VIP
----------------------------------------------------
-if Terrain then
-    Terrain.WaterReflectance = 1 -- Phản chiếu bóng người như gương
-    Terrain.WaterTransparency = 0 -- Nước trong vắt, thấy đáy
-    Terrain.WaterWaveSize = 0.05 -- Sóng nhỏ, lăn tăn cinematic
-    Terrain.WaterWaveSpeed = 0.5 -- Sóng chậm nhẹ nhàng
+local function applyHighlight(character)
+    if highlightCache[character] then return end
+
+    -- Outline
+    local hl                = Instance.new("Highlight")
+    hl.FillTransparency     = 1
+    hl.OutlineColor         = CONFIG.OutlineColor
+    hl.OutlineTransparency  = 0
+    hl.DepthMode            = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Adornee              = character
+    hl.Parent               = character
+    highlightCache[character] = hl
+
+    -- Material override on all parts
+    for _, part in ipairs(character:GetDescendants()) do
+        styleBasePart(part)
+    end
+    character.DescendantAdded:Connect(function(part)
+        styleBasePart(part)
+    end)
 end
 
--- Ép Roblox đồ họa mức cao nhất
-settings().Rendering.QualityLevel = Enum.QualityLevel.Level21 -- Ép lên mức Ultra 21
-game:GetService("GuiService"):SetGlobalGuiInset(0,0,0,0) -- Full màn hình
+local function removeHighlight(character)
+    local hl = highlightCache[character]
+    if hl then
+        safeDestroy(hl)
+        highlightCache[character] = nil
+    end
+end
 
-print(">>> SIÊU SCRIPT ANIME VIP ĐÃ KÍCH HOẠT. MÁY CLOUD, KHÓC ĐI! <<<")
+-- Apply to a player's character now and on respawn
+local function hookPlayer(player)
+    local function onChar(char)
+        char:WaitForChild("HumanoidRootPart", 10)
+        applyHighlight(char)
+
+        -- cleanup on death/removal
+        char.AncestryChanged:Connect(function(_, parent)
+            if not parent then
+                removeHighlight(char)
+            end
+        end)
+    end
+
+    if player.Character then onChar(player.Character) end
+    local conn = player.CharacterAdded:Connect(onChar)
+    table.insert(characterConns, conn)
+end
+
+local function applyToAllPlayers()
+    for _, player in ipairs(Players:GetPlayers()) do
+        hookPlayer(player)
+    end
+    local conn = Players.PlayerAdded:Connect(hookPlayer)
+    table.insert(characterConns, conn)
+
+    -- Cleanup on player leave
+    Players.PlayerRemoving:Connect(function(player)
+        if player.Character then
+            removeHighlight(player.Character)
+        end
+    end)
+end
+
+-- ─────────────────────────────────────────────────────────────────
+--  5. CINEMATIC LETTERBOX BARS (optional)
+-- ─────────────────────────────────────────────────────────────────
+local topBar, botBar
+
+local function applyCinematicBars()
+    if not CONFIG.EnableCinematicBars then return end
+
+    local sg = track(Instance.new("ScreenGui"))
+    sg.Name              = "AnimeCinematicBars"
+    sg.IgnoreGuiInset    = true
+    sg.ResetOnSpawn      = false
+    sg.DisplayOrder      = 999
+    sg.Parent            = LocalPlayer:WaitForChild("PlayerGui")
+
+    local function makeBar(anchorY, posY)
+        local f              = Instance.new("Frame", sg)
+        f.BackgroundColor3   = Color3.fromRGB(0, 0, 0)
+        f.BorderSizePixel    = 0
+        f.AnchorPoint        = Vector2.new(0, anchorY)
+        f.Position           = UDim2.new(0, 0, posY, 0)
+        f.Size               = UDim2.new(1, 0, 0, 0)  -- animate in
+        f.BackgroundTransparency = 0
+        return f
+    end
+
+    topBar = makeBar(0, 0)
+    botBar = makeBar(1, 1)
+
+    -- Animate bars in over 0.8 s
+    local barH = CONFIG.CinematicBarHeight
+    local info  = TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    TweenService:Create(topBar, info, { Size = UDim2.new(1, 0, barH, 0) }):Play()
+    TweenService:Create(botBar, info, { Size = UDim2.new(1, 0, barH, 0) }):Play()
+
+    print("[AnimeShader] Cinematic bars → applied.")
+end
+
+-- ─────────────────────────────────────────────────────────────────
+--  6. HEARTBEAT — DOF auto-focus + stability loop
+-- ─────────────────────────────────────────────────────────────────
+local function startHeartbeat()
+    local dof = Lighting:FindFirstChildOfClass("DepthOfFieldEffect")
+    if not dof then return end
+
+    heartbeatConn = RunService.Heartbeat:Connect(function()
+        -- Auto-focus: raycast from camera toward its look direction
+        local camPos   = Camera.CFrame.Position
+        local camLook  = Camera.CFrame.LookVector
+        local rayResult = workspace:Raycast(
+            camPos,
+            camLook * 300,
+            RaycastParams.new()
+        )
+
+        if rayResult then
+            local dist = (rayResult.Position - camPos).Magnitude
+            -- Smoothly lerp focus distance for cinematic feel
+            dof.FocusDistance = dof.FocusDistance + (dist - dof.FocusDistance) * 0.05
+        end
+
+        -- Guard: re-enforce Future tech each frame in case the game overrides it
+        if Lighting.Technology ~= CONFIG.Technology then
+            Lighting.Technology = CONFIG.Technology
+        end
+    end)
+end
+
+-- ─────────────────────────────────────────────────────────────────
+--  7. CLEANUP — call this to fully remove all effects
+-- ─────────────────────────────────────────────────────────────────
+local function cleanup()
+    print("[AnimeShader] Cleaning up all effects...")
+
+    -- Disconnect heartbeat
+    if heartbeatConn then
+        heartbeatConn:Disconnect()
+        heartbeatConn = nil
+    end
+
+    -- Disconnect character hooks
+    for _, conn in ipairs(characterConns) do
+        conn:Disconnect()
+    end
+    characterConns = {}
+
+    -- Destroy all tracked Lighting effects
+    for _, effect in ipairs(createdEffects) do
+        safeDestroy(effect)
+    end
+    createdEffects = {}
+
+    -- Remove all highlights
+    for char, hl in pairs(highlightCache) do
+        safeDestroy(hl)
+    end
+    highlightCache = {}
+
+    -- Restore sane Lighting defaults
+    Lighting.Technology              = Enum.Technology.ShadowMap
+    Lighting.EnvironmentDiffuseScale = 0.5
+    Lighting.EnvironmentSpecularScale= 0.5
+
+    print("[AnimeShader] Cleanup complete.")
+end
+
+-- ─────────────────────────────────────────────────────────────────
+--  INIT — fire everything in order
+-- ─────────────────────────────────────────────────────────────────
+local function init()
+    print("[AnimeShader] Initializing...")
+
+    applyLighting()
+    applyAtmosphere()
+    applyPostFX()
+    applyToAllPlayers()
+    applyCinematicBars()
+    startHeartbeat()
+
+    print("[AnimeShader] ✓ All systems active. Call cleanup() to remove.")
+end
+
+init()
+
+-- ─────────────────────────────────────────────────────────────────
+--  EXPOSE cleanup globally so you can call it from the executor
+-- ─────────────────────────────────────────────────────────────────
+getgenv().AnimeShaderCleanup = cleanup
+-- Usage: AnimeShaderCleanup()
