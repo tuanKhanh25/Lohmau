@@ -1,133 +1,117 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local VIM = game:GetService("VirtualInputManager")
-local LocalPlayer = Players.LocalPlayer
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local Terrain = Workspace:FindFirstChildOfClass("Terrain")
 
--- ================= CẤU HÌNH TRÍ TUỆ NHÂN TẠO =================
-local BOT_BRAIN = {
-    State = "Baiting", -- Trạng thái hiện tại
-    Target = nil,
-    ReactionDelay = {0.05, 0.12}, -- Humanization: Độ trễ ngẫu nhiên
-    ComboSequence = {1, 2, "Q", 4, "M1", 3}, -- Chuỗi combo Saitama chuẩn
-    IsAwakened = false,
-}
+---------------------------------------------------
+-- PHẦN 1: KÍCH HOẠT ENGINE TƯƠNG LAI (MÓNG NHÀ ĐẸP)
+---------------------------------------------------
+-- Ép Roblox dùng Future Lighting với đổ bóng thời gian thực chính xác
+settings().Rendering.GraphicsMode = Enum.GraphicsMode.Direct3D11 -- Ép dùng DX11 (nếu Cloud hỗ trợ)
+Lighting.Technology = Enum.Technology.Future
+Lighting.ShadowSoftness = 0 -- Đổ bóng sắc nét đến từng milimet
+Lighting.EnvironmentDiffuseScale = 1 -- Phản chiếu ánh sáng môi trường max
+Lighting.EnvironmentSpecularScale = 1 -- Kim loại, mồ hôi, máu bóng loáng
+Lighting.GlobalShadows = true
 
--- ================= HỆ THỐNG HUMANIZATION (7) =================
-local function humanTap(key)
-    task.wait(math.random(BOT_BRAIN.ReactionDelay[1]*100, BOT_BRAIN.ReactionDelay[2]*100)/100)
-    VIM:SendKeyEvent(true, key, false, game)
-    task.wait(0.03)
-    VIM:SendKeyEvent(false, key, false, game)
-end
+---------------------------------------------------
+-- PHẦN 2: POST-PROCESSING SIÊU CẤP (VIBE ANIME)
+---------------------------------------------------
 
--- ================= HỆ THỐNG PHÒNG THỦ & PHẢN XẠ (3) =================
--- Perfect Block: Chỉ bấm F khi đòn đánh sắp chạm vào người
-local function handleDefense(enemy, dist)
-    local isAttacking = false
-    local anims = enemy.Humanoid:GetPlayingAnimationTracks()
-    
-    for _, a in pairs(anims) do
-        if a.Name:lower():find("attack") or a.Name:lower():find("skill") then
-            -- Tính toán timing: Nếu animation đã chạy được 30% thì mới Block (Bait block)
-            if a.TimePosition > 0.1 then 
-                isAttacking = true 
-                break 
+-- 1. Bloom (Độ lóa): Làm skill, hiệu ứng rực rỡ như phim Makoto Shinkai
+local bloom = Lighting:FindFirstChild("CryBloom") or Instance.new("BloomEffect", Lighting)
+bloom.Name = "CryBloom"
+bloom.Intensity = 0.8 -- Cực mạnh
+bloom.Size = 56 -- Tỏa rộng
+bloom.Threshold = 0.7 -- Chỉ skill mạnh mới lóa
+
+-- 2. ColorCorrection (Màu sắc): Màu sắc tươi, độ tương phản cao đặc trưng Anime
+local cc = Lighting:FindFirstChild("CryColor") or Instance.new("ColorCorrectionEffect", Lighting)
+cc.Name = "CryColor"
+cc.Brightness = 0.1
+cc.Contrast = 0.35 -- Tương phản cực cao
+cc.Saturation = 0.25 -- Màu sắc rực rỡ
+cc.TintColor = Color3.fromRGB(255, 250, 240) -- Tone nắng ấm nghệ thuật
+
+-- 3. DepthOfField (Nhiếp ảnh): Xóa phông làm nổi bật Model
+local dof = Lighting:FindFirstChild("CryDoF") or Instance.new("DepthOfFieldEffect", Lighting)
+dof.Name = "CryDoF"
+dof.FarIntensity = 1
+dof.FocusDistance = 25 -- Luôn nét ở khoảng cách combat
+dof.InFocusRadius = 50
+dof.NearIntensity = 0.5 -- Xóa mờ nhẹ phần trước mặt
+
+-- 4. SunRays (Tia nắng): Thêm các tia nắng "Phật quang"
+local sun = Lighting:FindFirstChild("CrySun") or Instance.new("SunRaysEffect", Lighting)
+sun.Name = "CrySun"
+sun.Intensity = 0.1 -- Không quá chói
+sun.Spread = 1 -- Tia nắng tỏa rộng
+
+-- 5. Blur (Làm mờ chuyển động): Tăng độ mượt khi combo
+local blur = Lighting:FindFirstChild("CryBlur") or Instance.new("BlurEffect", Lighting)
+blur.Name = "CryBlur"
+blur.Size = 2 -- Mờ nhẹ khi quay camera
+
+---------------------------------------------------
+-- PHẦN 3: ĐỘT PHÁ MÔ HÌNH (MAKE MODEL BEAUTIFUL)
+---------------------------------------------------
+-- Phần này sẽ quét mọi Model và Parts trong game để áp dụng chất liệu siêu cấp
+
+local function beautifyCharacter(char)
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            -- 1. Khử bóng khối: Làm bề mặt nhân vật mịn màng, giống da anime
+            part.CastShadow = false -- Tắt shadow mặc định của part để dùng Shadow của Future
+            
+            -- 2. Thêm độ phản chiếu nhẹ (Giả lập da mịn)
+            if part.Name == "Head" or part.Name:match("Arm") or part.Name:match("Leg") or part.Name == "Torso" then
+                part.Material = Enum.Material.SmoothPlastic
+                part.Reflectance = 0.05 -- Phản chiếu ánh sáng nhẹ để nhìn không bị "lì"
+            end
+            
+            -- 3. Tạo Outline (Viền nhân vật) - Chỉ có Anime mới có
+            -- Kỹ thuật này ngốn CPU Cloud kinh khủng nhất
+            if not part:FindFirstChild("SelectionHighlight") then
+                local highlight = Instance.new("Highlight", part)
+                highlight.FillTransparency = 1 -- Chỉ giữ Outline
+                highlight.OutlineColor = Color3.fromRGB(0, 0, 0) -- Viền đen
+                highlight.OutlineTransparency = 0.5 -- Viền mờ nhẹ
             end
         end
     end
-
-    if isAttacking and dist < 12 then
-        VIM:SendKeyEvent(true, Enum.KeyCode.F, false, game)
-        -- Logic Dash né (4): Dash trái hoặc phải thay vì lùi
-        if math.random(1, 100) > 80 then
-            local directions = {Enum.KeyCode.A, Enum.KeyCode.D}
-            humanTap(directions[math.random(1, #directions)])
-            humanTap(Enum.KeyCode.Q)
-        end
-    else
-        VIM:SendKeyEvent(false, Enum.KeyCode.F, false, game)
-    end
 end
 
--- ================= CHIẾN THUẬT DI CHUYỂN "ẢO" (4) =================
-local function mixMovement(root, enemyRoot, dist)
-    local time = tick()
-    if dist > 15 then
-        -- Fake Rush: Lao vào rồi khựng lại để bait địch ra chiêu hụt
-        if math.sin(time * 2) > 0.8 then
-            root.Parent.Humanoid:MoveTo(enemyRoot.Position + (root.CFrame.LookVector * -5))
-        else
-            root.Parent.Humanoid:MoveTo(enemyRoot.Position)
-        end
-    else
-        -- Zigzag Orbit: Không di chuyển vòng tròn đều mà đi theo hình zíc zắc
-        local offset = Vector3.new(math.cos(time * 4) * 12, 0, math.sin(time * 2) * 12)
-        root.Parent.Humanoid:MoveTo(enemyRoot.Position + offset)
-    end
+-- Áp dụng cho người chơi hiện tại
+if game.Players.LocalPlayer.Character then
+    beautifyCharacter(game.Players.LocalPlayer.Character)
 end
 
--- ================= COMBO SAITAMA CHUYÊN SÂU (1 & 6) =================
-local lastSkill = 0
-local function executeSaitamaCombo(dist)
-    if tick() - lastSkill < 0.5 then return end
-    
-    -- Kiểm tra nếu địch đang Block -> Dùng chiêu 1 (Shove) để phá thủ
-    local enemyChar = BOT_BRAIN.Target
-    local isEnemyBlocking = enemyChar:FindFirstChild("BlockVFX") or false -- Tùy game check VFX hoặc Anim
+-- Tự động áp dụng khi người chơi respawn
+game.Players.LocalPlayer.CharacterAdded:Connect(beautifyCharacter)
 
-    if isEnemyBlocking then
-        humanTap(Enum.KeyCode.One) -- Phá thủ
-        lastSkill = tick()
-    elseif dist < 6 then
-        -- Combo chuẩn: M1 x3 -> Skill 2 -> Dash -> Skill 4
-        -- (Đây là nơi bro nạp logic thứ tự chiêu vào)
-        humanTap(Enum.KeyCode.ButtonL2) 
-    end
-end
-
--- ================= VÒNG LẶP NÃO BỘ (FSM) =================
-RunService.Heartbeat:Connect(function()
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    
-    -- 5. Target System: Tìm đứa máu thấp nhất trong tầm 50m
-    local target, dist = nil, 50
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Humanoid") then
-            local h = p.Character.Humanoid
-            local d = (char.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-            if h.Health > 0 and d < dist then
-                -- Ưu tiên đứa máu thấp (Game Sense)
-                target = p.Character
-                dist = d
-            end
+-- Quét môi trường xung quanh (Optional: rất nặng)
+local function beautifyEnvironment()
+    for _, part in pairs(Workspace:GetDescendants()) do
+        if part:IsA("BasePart") and part.Material == Enum.Material.Grass then
+            -- Làm cỏ nhìn chân thực hơn
+            part.Material = Enum.Material.DiamondPlate -- Hack texture để tạo khối cỏ sắc nét
+            part.Color = Color3.fromRGB(50, 150, 50)
         end
     end
-    
-    BOT_BRAIN.Target = target
-    if not target then return end
+end
+-- beautifyEnvironment() -- Uncomment dòng này nếu muốn Map cũng khóc theo
 
-    -- 10. Game Sense: Khi nào chạy, khi nào đánh
-    local myHealth = char.Humanoid.Health
-    if myHealth < 20 then
-        BOT_BRAIN.State = "Fleeing"
-    elseif dist < 8 then
-        BOT_BRAIN.State = "Bursting"
-    else
-        BOT_BRAIN.State = "Baiting"
-    end
+---------------------------------------------------
+-- PHẦN 4: HỆ THỐNG NÂNG CẤP ĐỊA HÌNH & NƯỚC VIP
+---------------------------------------------------
+if Terrain then
+    Terrain.WaterReflectance = 1 -- Phản chiếu bóng người như gương
+    Terrain.WaterTransparency = 0 -- Nước trong vắt, thấy đáy
+    Terrain.WaterWaveSize = 0.05 -- Sóng nhỏ, lăn tăn cinematic
+    Terrain.WaterWaveSpeed = 0.5 -- Sóng chậm nhẹ nhàng
+end
 
-    -- Thực thi State
-    handleDefense(target, dist)
-    
-    if BOT_BRAIN.State == "Baiting" then
-        mixMovement(char.HumanoidRootPart, target.HumanoidRootPart, dist)
-    elseif BOT_BRAIN.State == "Bursting" then
-        char.Humanoid:MoveTo(target.HumanoidRootPart.Position)
-        executeSaitamaCombo(dist)
-    elseif BOT_BRAIN.State == "Fleeing" then
-        -- Chạy zíc zắc thoát thân
-        char.Humanoid:MoveTo(char.HumanoidRootPart.Position + (char.HumanoidRootPart.CFrame.LookVector * -20))
-    end
-end)
+-- Ép Roblox đồ họa mức cao nhất
+settings().Rendering.QualityLevel = Enum.QualityLevel.Level21 -- Ép lên mức Ultra 21
+game:GetService("GuiService"):SetGlobalGuiInset(0,0,0,0) -- Full màn hình
 
+print(">>> SIÊU SCRIPT ANIME VIP ĐÃ KÍCH HOẠT. MÁY CLOUD, KHÓC ĐI! <<<")
